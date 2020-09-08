@@ -1,0 +1,47 @@
+VPC Networking in CloudSDK https://app.pluralsight.com/course-player?clipId=8c3b3ae6-7f21-42d1-926e-3f17849d93d5
+
+View the subnets
+  $ gcloud compute networks subnets list
+  
+View the routes
+  $ gcloud compute  routes list
+
+View the firewall rules
+  $ gcloud compute firewall-rules list
+  
+Delete the Firewall rules
+  $ gcloud compute firewall-rules delete default-allow-icmp default-allow-internal default-allow-rdp default-allow-ssh
+
+Delete the default network
+  $ gcloud compute networks delete default 
+  
+Create an auto mode VPC network with firewall rules
+  $ gcloud compute firewall-rules create select-all --network mynetwork --allow tcp,udp,icmp
+
+Create vm in europe and us zone
+  $ gcloud compute instances create mynet-us-vm --subnet=mynetwork --zone=us-central1-c --machine-type=n1-standard-1
+  $ gcloud compute instances create mynet-eu-vm --subnet=mynetwork --zone=europe-west1-c --machine-type=n1-standard-1
+  
+Verify comunication between the instances   
+  $ gcloud compute ssh mynet-eu-vm
+  $ ping -c 3 [mynet-us-vm internal ip]
+  
+Switch to cutom mode
+  $ gcloud compute networks update mynetwork --switch-to-custom-subnet-mode
+
+Create a subnet in a new VPC
+  $ gcloud compute networks create managementnet --subnet-mode=custom
+  $ gcloud compute networks subnets create managementsubnet-us --network managementnet --region=us-central1 --range=10.130.0.0/20
+  
+Add firewall rule to allow tcp,icmp,rdp and ssh into the instances
+  $ gcloud compute firewall-rules create managementnet-allow-icmp-ssh-rdp --direction=INGRESS --priority=1000 --network=managementnet --action=ALLOW --rules=tcp:22,tcp:3389,icmp --source-ranges=0.0.0.0/0
+  
+Create a 2 subnets in a new VPC
+  $ gcloud compute networks create privatenet --subnet-mode=custom
+  
+  $ gcloud compute networks subnets create privatesubnet-us --network=privatenet --region=us-central1 --range=172.16.0.0/24
+  $ gcloud compute networks subnets create privatesubnet-eu --network=privatenet --region=europe-west1 --range=172.20.0.0/20
+
+Add instances to the network
+  $ gcloud compute instances create privatenet-us-vm --zone=us-central1-c --machine-type=f1-micro --subnet=privatesubnet-us
+  $ gcloud compute instances create managementnet-us-vm --zone=us-central1-c --machine-type=f1-micro --subnet=managementsubnet-us
