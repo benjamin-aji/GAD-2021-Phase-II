@@ -1,0 +1,73 @@
+                                            #####Configuring an HTTP Load Balancer with Autoscaling
+
+1.Create the health check firewall rule
+  $ gcloud compute  firewall-rules create fw-allow-health-checks --direction=INGRESS --priority=1000 --network=default --action=ALLOW --rules=tcp:80 --source-ranges=130.211.0.0/22,35.191.0.0/16 --target-tags=allow-health-checks
+
+2.Create the Cloud Router instance
+#Create new router
+	$ gcloud compute routers create nat-router-us-central1 --network default --region us-central1
+
+#Create cloud NAT gateway
+	$ gcloud compute routers nats create nat-config --router=nat-router-us-central1 --region=us-	central1 --auto-allocate-nat-external-ips --nat-all-subnet-ip-ranges
+
+3. Create a custom image for a web server
+#Create VM
+  $ gcloud beta compute instances create webserver --zone=us-central1-a --machine-type=f1-micro --subnet=default --no-address --tags=allow-health-checks --image=debian-10-buster-v20200902 --image-project=debian-cloud --boot-disk-size=10GB --no-boot-disk-auto-delete --boot-disk-type=pd-standard --boot-disk-device-name=webserver --no-shielded-secure-boot --no-shielded-vtpm --no-shielded-integrity-monitoring --reservation-affinity=any
+
+#Customize the VM
+  $ gcloud compute ssh webserver --zone us-central1-a
+
+#To install Apache2, run the following commands:
+  $ sudo apt-get update
+  $ sudo apt-get install -y apache2
+
+#To start the Apache server, run the following command:
+	$ sudo service apache2 start
+
+To test the default page for the Apache2 server, run the following command:
+  $ curl localhost
+
+#Set the Apache service to start at boot
+#In the webserver SSH terminal, set the service to start on boot:
+	$ sudo update-rc.d apache2 enable
+  $ gcloud compute instances reset webserver 
+
+#Check the server by connecting via SSH to the VM and entering the following command:
+	$ sudo service apache2 status
+ 	$ gcloud compute instances delete webserver
+
+#Create custom image 
+  $ gcloud compute images create mywebserver  --source-disk=webserver --source-disk-zone=us-central1-a 
+
+4.Configure an instance template and create instance groups
+#Configure the instance template
+  $ gcloud compute instance-templates create mywebserver-template --machine-type=f1-micro --network=projects/qwiklabs-gcp-0a7ff2f7b40297e0/global/networks/default --no-address --tags=allow-health-checks --image=mywebserver --image-project=qwiklabs-gcp-0a7ff2f7b40297e0 --boot-disk-size=10GB --boot-disk-type=pd-standard --boot-disk-device-name=mywebserver-template --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --reservation-affinity=any
+
+#Create the managed instance groups
+  $ gcloud compute health-checks create tcp "http-health-check" --timeout "5" --check-interval "10" --unhealthy-threshold "3" --healthy-threshold "2" --port "80"
+
+#for US
+  $ gcloud compute instance-groups managed create us-central1-mig --base-instance-name=us-central1-mig --template=mywebserver-template --size=1 --zones=us-central1-b,us-central1-c,us-central1-f --instance-redistribution-type=PROACTIVE --health-check=http-health-check --initial-delay=60
+  $ gcloud compute instance-groups managed set-autoscaling "us-central1-mig" --region "us-central1" --cool-down-period "60" --max-num-replicas "2" --min-num-replicas "1" --target-load-balancing-utilization "0.8" --mode "on"
+
+#For EU
+  $ gcloud compute instance-groups managed create europe-west1-mig --base-instance-name=europe-west1-mig --template=mywebserver-template --size=1 --zones=europe-west1-b,europe-west1-c,europe-west1-d --instance-redistribution-type=PROACTIVE --health-check=http-health-check --initial-delay=60
+  $ gcloud compute instance-groups managed set-autoscaling "europe-west1-mig" --region "europe-west1" --cool-down-period "60" --max-num-replicas "2" --min-num-replicas "1" --target-load-balancing-utilization "0.8" --mode "on"
+
+5. Configure the HTTP load balancer :I used console for this as i could not navigate my way through on cloud shell
+
+6. Stress the HTTP Load balance: 
+#Create a VM Stress-test from webserver image
+  $ gcloud compute --project=qwiklabs-gcp-0a7ff2f7b40297e0 instances create stress-test --zone=us-west1-c --machine-type=f1-micro --subnet=default --image=mywebserver --image-project=qwiklabs-gcp-0a7ff2f7b40297e0 --boot-disk-size=10GB --boot-disk-type=pd-standard --boot-disk-device-name=stress-test --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --reservation-affinity=any
+
+#launch terminal
+  $ gcloud compute ssh stress-test
+
+#Create an environment for the load balancer IP address
+  $ export LB_IP=34.120.45.25:80
+
+#Verify with echo
+  $ echo $LB_IP
+
+#Place a load
+  $ ab -n 500000 -c 1000 http://$LB_IP/
