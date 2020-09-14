@@ -1,23 +1,41 @@
-$ gcloud compute networks list
+Task 1: Explore the networks and instances
+  #Explore the networks
+    $ gcloud compute networks list
 
-$ gcloud compute instances list
+    $ gcloud compute instances list
 
-$ gcloud compute firewall-rules list
+  #Explore the firewall rules
+    $ gcloud compute firewall-rules list
+    
+  #Explore the instances and their connectivity
+    $ gcloud compute ssh server-1 --zone = "     "
+    $ ping -c 3 "server-2's external IP address"
+    $ ping -c 3  "server-2's internal IP address"
+    $ exit
+    
+    $ gcloud compute ssh server-2 --zone = "     "
+    $ ping -c 3 "server-1's external IP address"
+    $ ping -c 3  "server-1's internal IP address"
+    $ exit
+    
+Task 2: Create the VPN gateways and tunnels
 
-$ gcloud compute addresses create vpn-2-static-ip --project=qwiklabs-gcp-00-d59d856b72e0 --region=europe-west1
+    $ gcloud compute addresses create vpn-1-static-ip --project=qwiklabs-gcp-00-d59d856b72e0 --region=europe-west1
 
-$ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" target-vpn-gateways create "vpn-1" --region "us-central1" --network "vpn-network-1"
+    $ gcloud compute addresses create vpn-2-static-ip --project=qwiklabs-gcp-00-d59d856b72e0 --region=europe-west1
 
-$ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" forwarding-rules create "vpn-1-rule-esp" --region "us-central1" --address "35.222.245.245" --ip-protocol "ESP" --target-vpn-gateway "vpn-1"
+    $ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" target-vpn-gateways create "vpn-1" --region "us-central1" --network "vpn-network-1"
 
-$ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" forwarding-rules create "vpn-1-rule-udp500" --region "us-central1" --address "35.222.245.245" --ip-protocol "UDP" --ports "500" --target-vpn-gateway "vpn-1"
+    $ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" forwarding-rules create "vpn-1-rule-esp" --region "us-central1" --address "35.222.245.245" --ip-protocol "ESP" --target-vpn-gateway "vpn-1"
 
-$ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" forwarding-rules create "vpn-1-rule-udp4500" --region "us-central1" --address "35.222.245.245" --ip-protocol "UDP" --ports "4500" --target-vpn-gateway "vpn-1"
+    $ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" forwarding-rules create "vpn-1-rule-udp500" --region "us-central1" --address "35.222.245.245" --ip-protocol "UDP" --ports "500" --target-vpn-gateway "vpn-1"
 
-$ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" vpn-tunnels create "tunnel1to2" --region "us-central1" --peer-address "35.222.245.245" --shared-secret "gcprocks" --ike-version "2" --local-traffic-selector "0.0.0.0/0" --target-vpn-gateway "vpn-1"
+    $ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" forwarding-rules create "vpn-1-rule-udp4500" --region "us-central1" --address "35.222.245.245" --ip-protocol "UDP" --ports "4500" --target-vpn-gateway "vpn-1"
 
-$ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" routes create "tunnel1to2-route-1" --network "vpn-network-1" --next-hop-vpn-tunnel "tunnel1to2" --next-hop-vpn-tunnel-region "us-central1" --destination-range "10.5.4.0/24"
-
+Create the vpn-1 gateway and tunnel1to2
+    $ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" vpn-tunnels create "tunnel1to2" --region "us-central1" --peer-address "35.222.245.245" --shared-secret "gcprocks" --ike-version "2" --local-traffic-selector "0.0.0.0/0" --target-vpn-gateway "vpn-1"
+Create the vpn-2 gateway and tunnel2to1
+    $ gcloud compute --project "qwiklabs-gcp-00-d59d856b72e0" routes create "tunnel1to2-route-1" --network "vpn-network-1" --next-hop-vpn-tunnel "tunnel1to2" --next-hop-vpn-tunnel-region "us-central1" --destination-range "10.5.4.0/24"
 
 
 
